@@ -5,12 +5,17 @@ substitutions:
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
+  includes:
+    - <hal/gpio_ll.h>
+    - <soc/gpio_struct.h>
   # Template numbers and selects restore their value by publishing it, which
   # does not fire their set_action, so a restored effect would show in the UI
   # and do nothing. Push the lot into the component once everything is up.
   on_boot:
     priority: -100
     then:
+      - lambda: |-
+          gpio_ll_od_enable(&GPIO, GPIO_NUM_27);
       - lambda: |-
           id(panel)->set_effect_speed(id(effect_speed).state);
           id(panel)->set_effect_angle(id(effect_angle).state);
@@ -41,6 +46,17 @@ api:
   # Temporary displays go back to the time on their own when the duration
   # runs out, so a failed automation cannot leave the clock showing stale data.
   actions:
+    - action: beep
+      variables:
+        frequency: int
+        duration: int
+      then:
+        - script.execute:
+            id: buzzer_beep
+            frequency: !lambda |-
+              return frequency;
+            duration: !lambda |-
+              return duration;
     - action: show_seconds
       variables:
         duration: int
@@ -279,7 +295,41 @@ switch:
     turn_off_action:
       - lambda: id(panel)->set_blink_colon(false);
 
+output:
+  - platform: ledc
+    id: buzzer_output
+    pin:
+      number: GPIO27
+      inverted: true
+    frequency: 2000 Hz
+
+script:
+  - id: buzzer_beep
+    mode: restart
+    parameters:
+      frequency: int
+      duration: int
+    then:
+      - output.ledc.set_frequency:
+          id: buzzer_output
+          frequency: !lambda |-
+            return frequency;
+      - output.set_level:
+          id: buzzer_output
+          level: 50%
+      - delay: !lambda |-
+          return duration;
+      - output.turn_off: buzzer_output
+
 button:
+  - platform: template
+    name: "Buzzer Beep"
+    icon: mdi:volume-high
+    on_press:
+      - script.execute:
+          id: buzzer_beep
+          frequency: 2000
+          duration: 100
   # Three seconds of every populated LED lit white at half brightness, then
   # back to the time with the settings it had before.
   - platform: template
