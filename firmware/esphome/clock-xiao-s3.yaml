@@ -198,6 +198,11 @@ sensor:
       name: "Clock Humidity"
     update_interval: 60s
 
+  - platform: uptime
+    name: "Clock Uptime"
+    type: seconds
+    update_interval: 10s
+
 time:
   # No timezone on this one, deliberately. Home Assistant pushes its own
   # timezone to the device on every time sync, DST rules included, but only
